@@ -19,7 +19,7 @@
 
 import { getRequestHeaders } from '../../../../../script.js';
 import { VectorBackend } from './backend-interface.js';
-import { getModelField } from '../core/providers.js';
+import { getModelField, getProviderSpecificParams } from '../core/providers.js';
 import { VECTOR_LIST_LIMIT } from '../core/constants.js';
 
 const BACKEND_TYPE = 'milvus';
@@ -39,9 +39,9 @@ export class MilvusBackend extends VectorBackend {
             // but missing in Similharity servers-side generation (e.g. KoboldCpp/WebLLM)
             // Although WebLLM is client-side, we can't easily run it here without importing providers.
             // This is a best-effort for server-side providers (OpenAI, etc.) supported by Similharity.
-            
+
             console.log(`VectHare: Attempting to auto-detect embedding dimensions for ${settings.source}...`);
-            
+
             const response = await fetch('/api/plugins/similharity/get-embedding', {
                 method: 'POST',
                 headers: getRequestHeaders(),
@@ -68,7 +68,7 @@ export class MilvusBackend extends VectorBackend {
     async initialize(settings) {
         // Determine dimensions: Manual setting > Auto-detect > Default (null)
         let dimensions = settings.milvus_dimensions ? parseInt(settings.milvus_dimensions) : null;
-        
+
         if (!dimensions || isNaN(dimensions)) {
             dimensions = await this._autoDetectDimensions(settings);
         }
@@ -184,6 +184,7 @@ export class MilvusBackend extends VectorBackend {
         if (items.length === 0) return;
 
         const { type, sourceId } = this._parseCollectionId(collectionId);
+        const providerParams = getProviderSpecificParams(settings, false);
 
         const response = await fetch('/api/plugins/similharity/chunks/insert', {
             method: 'POST',
@@ -213,6 +214,7 @@ export class MilvusBackend extends VectorBackend {
                 source: settings.source || 'transformers',
                 model: getModelFromSettings(settings),
                 filters: { type, sourceId }, // Pass multitenancy info
+                ...providerParams,
             }),
         });
 
@@ -248,6 +250,7 @@ export class MilvusBackend extends VectorBackend {
 
     async queryCollection(collectionId, searchText, topK, settings) {
         const { type, sourceId } = this._parseCollectionId(collectionId);
+        const providerParams = getProviderSpecificParams(settings, true);
 
         const response = await fetch('/api/plugins/similharity/chunks/query', {
             method: 'POST',
@@ -261,6 +264,7 @@ export class MilvusBackend extends VectorBackend {
                 source: settings.source || 'transformers',
                 model: getModelFromSettings(settings),
                 filters: { type, sourceId },
+                ...providerParams,
             }),
         });
 
@@ -285,6 +289,7 @@ export class MilvusBackend extends VectorBackend {
 
     async queryMultipleCollections(collectionIds, searchText, topK, threshold, settings) {
         const results = {};
+        const providerParams = getProviderSpecificParams(settings, true);
 
         for (const collectionId of collectionIds) {
             try {
@@ -301,7 +306,9 @@ export class MilvusBackend extends VectorBackend {
                         threshold: threshold,
                         source: settings.source || 'transformers',
                         model: getModelFromSettings(settings),
+                        model: getModelFromSettings(settings),
                         filters: { type, sourceId },
+                        ...providerParams,
                     }),
                 });
 
@@ -392,7 +399,7 @@ export class MilvusBackend extends VectorBackend {
             backend: BACKEND_TYPE,
             collectionId: 'vecthare_main',
             source: settings.source || 'transformers',
-                model: getModelFromSettings(settings),
+            model: getModelFromSettings(settings),
         }), {
             headers: getRequestHeaders(),
         });

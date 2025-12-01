@@ -15,7 +15,7 @@
 
 import { getRequestHeaders } from '../../../../../script.js';
 import { VectorBackend } from './backend-interface.js';
-import { getModelField } from '../core/providers.js';
+import { getModelField, getProviderSpecificParams } from '../core/providers.js';
 import { VECTOR_LIST_LIMIT } from '../core/constants.js';
 
 const BACKEND_TYPE = 'lancedb';
@@ -27,6 +27,8 @@ function getModelFromSettings(settings) {
     const modelField = getModelField(settings.source);
     return modelField ? settings[modelField] || '' : '';
 }
+
+
 
 export class LanceDBBackend extends VectorBackend {
     async initialize(settings) {
@@ -85,6 +87,8 @@ export class LanceDBBackend extends VectorBackend {
     async insertVectorItems(collectionId, items, settings) {
         if (items.length === 0) return;
 
+        const providerParams = getProviderSpecificParams(settings, false);
+
         const response = await fetch('/api/plugins/similharity/chunks/insert', {
             method: 'POST',
             headers: getRequestHeaders(),
@@ -100,6 +104,7 @@ export class LanceDBBackend extends VectorBackend {
                 })),
                 source: settings.source || 'transformers',
                 model: getModelFromSettings(settings),
+                ...providerParams,
             }),
         });
 
@@ -131,6 +136,8 @@ export class LanceDBBackend extends VectorBackend {
     }
 
     async queryCollection(collectionId, searchText, topK, settings) {
+        const providerParams = getProviderSpecificParams(settings, true);
+
         const response = await fetch('/api/plugins/similharity/chunks/query', {
             method: 'POST',
             headers: getRequestHeaders(),
@@ -142,6 +149,7 @@ export class LanceDBBackend extends VectorBackend {
                 threshold: 0.0,
                 source: settings.source || 'transformers',
                 model: getModelFromSettings(settings),
+                ...providerParams,
             }),
         });
 
@@ -167,6 +175,7 @@ export class LanceDBBackend extends VectorBackend {
     async queryMultipleCollections(collectionIds, searchText, topK, threshold, settings) {
         // Query each collection separately
         const results = {};
+        const providerParams = getProviderSpecificParams(settings, true);
 
         for (const collectionId of collectionIds) {
             try {
@@ -180,7 +189,8 @@ export class LanceDBBackend extends VectorBackend {
                         topK: topK,
                         threshold: threshold,
                         source: settings.source || 'transformers',
-                model: getModelFromSettings(settings),
+                        model: getModelFromSettings(settings),
+                        ...providerParams,
                     }),
                 });
 
@@ -270,7 +280,7 @@ export class LanceDBBackend extends VectorBackend {
             backend: BACKEND_TYPE,
             collectionId: collectionId,
             source: settings.source || 'transformers',
-                model: getModelFromSettings(settings),
+            model: getModelFromSettings(settings),
         }), {
             headers: getRequestHeaders(),
         });

@@ -19,7 +19,7 @@
 
 import { getRequestHeaders } from '../../../../../script.js';
 import { VectorBackend } from './backend-interface.js';
-import { getModelField } from '../core/providers.js';
+import { getModelField, getProviderSpecificParams } from '../core/providers.js';
 import { VECTOR_LIST_LIMIT } from '../core/constants.js';
 
 const BACKEND_TYPE = 'qdrant';
@@ -142,6 +142,7 @@ export class QdrantBackend extends VectorBackend {
         if (items.length === 0) return;
 
         const { type, sourceId } = this._parseCollectionId(collectionId);
+        const providerParams = getProviderSpecificParams(settings, false);
 
         const response = await fetch('/api/plugins/similharity/chunks/insert', {
             method: 'POST',
@@ -171,6 +172,7 @@ export class QdrantBackend extends VectorBackend {
                 source: settings.source || 'transformers',
                 model: getModelFromSettings(settings),
                 filters: { type, sourceId }, // Pass multitenancy info
+                ...providerParams,
             }),
         });
 
@@ -206,6 +208,7 @@ export class QdrantBackend extends VectorBackend {
 
     async queryCollection(collectionId, searchText, topK, settings) {
         const { type, sourceId } = this._parseCollectionId(collectionId);
+        const providerParams = getProviderSpecificParams(settings, true);
 
         const response = await fetch('/api/plugins/similharity/chunks/query', {
             method: 'POST',
@@ -219,6 +222,7 @@ export class QdrantBackend extends VectorBackend {
                 source: settings.source || 'transformers',
                 model: getModelFromSettings(settings),
                 filters: { type, sourceId },
+                ...providerParams,
             }),
         });
 
@@ -243,6 +247,7 @@ export class QdrantBackend extends VectorBackend {
 
     async queryMultipleCollections(collectionIds, searchText, topK, threshold, settings) {
         const results = {};
+        const providerParams = getProviderSpecificParams(settings, true);
 
         for (const collectionId of collectionIds) {
             try {
@@ -258,8 +263,9 @@ export class QdrantBackend extends VectorBackend {
                         topK: topK,
                         threshold: threshold,
                         source: settings.source || 'transformers',
-                model: getModelFromSettings(settings),
+                        model: getModelFromSettings(settings),
                         filters: { type, sourceId },
+                        ...providerParams,
                     }),
                 });
 
@@ -350,7 +356,7 @@ export class QdrantBackend extends VectorBackend {
             backend: BACKEND_TYPE,
             collectionId: 'vecthare_main',
             source: settings.source || 'transformers',
-                model: getModelFromSettings(settings),
+            model: getModelFromSettings(settings),
         }), {
             headers: getRequestHeaders(),
         });
